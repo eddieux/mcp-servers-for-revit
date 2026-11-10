@@ -372,7 +372,11 @@ namespace RevitMCPCommandSet.Services
         private FamilySymbol FindRoomTagType(Document doc)
         {
             // If specific tag type ID was specified, try to use it
+#if REVIT2024_OR_GREATER
+            if (!string.IsNullOrEmpty(_tagTypeId) && long.TryParse(_tagTypeId, out long id))
+#else
             if (!string.IsNullOrEmpty(_tagTypeId) && int.TryParse(_tagTypeId, out int id))
+#endif
             {
                 ElementId elementId = new ElementId(id);
                 Element element = doc.GetElement(elementId);

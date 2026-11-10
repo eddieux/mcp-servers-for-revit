@@ -38,7 +38,11 @@ namespace RevitMCPCommandSet.Services
                 List<string> invalidIds = new List<string>();
                 foreach (var idStr in ElementIds)
                 {
+#if REVIT2024_OR_GREATER
+                    if (long.TryParse(idStr, out long elementIdValue))
+#else
                     if (int.TryParse(idStr, out int elementIdValue))
+#endif
                     {
                         var elementId = new ElementId(elementIdValue);
                         // 检查元素是否存在

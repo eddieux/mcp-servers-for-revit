@@ -1,16 +1,46 @@
 import Database from 'better-sqlite3';
+import { createRequire } from 'module';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const require = createRequire(import.meta.url);
 
 // Database path (stored in project root)
 const DB_PATH = join(__dirname, '..', '..', 'revit-data.db');
 
+function createDatabase(dbPath: string): Database.Database {
+  try {
+    return new Database(dbPath);
+  } catch {
+    // Fallback to Node.js built-in node:sqlite (Node 22.5+ / Node 26+) when better-sqlite3 native bindings are unavailable
+    const { DatabaseSync } = require('node:sqlite');
+    const sqliteDb = new DatabaseSync(dbPath);
+    return {
+      exec: (sql: string) => sqliteDb.exec(sql),
+      pragma: (str: string) => sqliteDb.exec(`PRAGMA ${str}`),
+      prepare: (sql: string) => sqliteDb.prepare(sql),
+      transaction: <T extends (...args: any[]) => any>(fn: T): T => {
+        return ((...args: any[]) => {
+          sqliteDb.exec('BEGIN');
+          try {
+            const result = fn(...args);
+            sqliteDb.exec('COMMIT');
+            return result;
+          } catch (err) {
+            sqliteDb.exec('ROLLBACK');
+            throw err;
+          }
+        }) as T;
+      }
+    } as unknown as Database.Database;
+  }
+}
+
 // Initialize database connection
-export const db = new Database(DB_PATH);
+export const db = createDatabase(DB_PATH);
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
